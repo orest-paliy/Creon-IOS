@@ -1,0 +1,25 @@
+# Xcode
+DerivedData/
+build/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+
+# SwiftPM
+.swiftpm/
+.build/
+
+# Logs
+*.log
+
+# Personal Xcode settings
+*.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+
+# Secrets
+APIConfig.json
+Secrets.xcconfig
+
+# DS_Store
+.DS_Store
