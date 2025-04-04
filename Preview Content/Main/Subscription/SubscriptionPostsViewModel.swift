@@ -1,12 +1,16 @@
+//
+//  SubscriptionPostsViewModel.swift
+//  Diploma
+//
+//  Created by Orest Palii on 04.04.2025.
+//
+
 import Foundation
 
 @MainActor
-final class HomeViewModel: ObservableObject {
+final class SubscriptionPostsViewModel: ObservableObject {
     @Published var posts: [Post] = []
-    @Published var searchQuery: String = ""
-    @Published var isSearching = false
     @Published var isLoading = false
-    @Published var lastKey: String? = nil
     @Published var allPostsLoaded = false
     
     private var allPosts: [Post] = []
@@ -19,12 +23,30 @@ final class HomeViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            self.allPosts = try await FirebasePostService.shared.fetchAllPostsSortedByDate()
+            guard let currentUserId = FirebaseUserService.shared.currentUserId else { return }
+
+            // 1. Завантажити список ID підписок
+            var subscriptions: [String] = []
+            let group = DispatchGroup()
+            group.enter()
+            FirebaseUserService.shared.fetchSubscriptions(for: currentUserId) { ids in
+                subscriptions = ids
+                group.leave()
+            }
+            group.wait()
+
+            // 2. Завантажити всі пости
+            let allFetchedPosts = try await FirebasePostService.shared.fetchAllPostsSortedByDate()
+
+            // 3. Відфільтрувати лише пости підписок
+            self.allPosts = allFetchedPosts.filter { subscriptions.contains($0.authorId) }
+
+            // 4. Взяти першу сторінку
             self.posts = Array(allPosts.prefix(pageSize))
             self.currentPage = 1
             self.allPostsLoaded = posts.count == allPosts.count
         } catch {
-            print("Помилка при завантаженні:", error.localizedDescription)
+            print("Помилка при завантаженні підписок:", error.localizedDescription)
         }
     }
 
@@ -46,34 +68,5 @@ final class HomeViewModel: ObservableObject {
         currentPage += 1
         allPostsLoaded = posts.count == allPosts.count
     }
-
-    func performSearch() {
-        isLoading = true
-        guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else {
-            isSearching = false
-            isLoading = false
-            return
-        }
-
-        isSearching = true
-
-        FirebasePostService.shared.fetchSimilarPostsByEmbedding(for: searchQuery) { [weak self] results in
-            Task { @MainActor in
-                self?.posts = results
-                self?.isLoading = false
-            }
-        }
-    }
-
-
-    func clearSearch() {
-        searchQuery = ""
-        isSearching = false
-        posts = []
-        lastKey = nil
-        Task {
-            await loadInitialPosts()
-        }
-    }
-
 }
+

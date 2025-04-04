@@ -51,8 +51,34 @@ struct ProfileView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 20))
                         }
 
-                        Text(viewModel.userEmail)
-                            .foregroundStyle(Color("primaryColor"))
+                        VStack(alignment: .leading){
+                            Text(viewModel.userEmail)
+                                .foregroundStyle(Color("primaryColor"))
+                            HStack{
+                                VStack {
+                                    Text("\(viewModel.posts.count)")
+                                        .font(.headline)
+                                    Text("Публікацій")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                VStack {
+                                     Text("\(viewModel.followersCount)")
+                                         .font(.headline)
+                                     Text("Підписників")
+                                         .font(.caption)
+                                         .foregroundStyle(.secondary)
+                                 }
+
+                                 VStack {
+                                     Text("\(viewModel.subscriptionsCount)")
+                                         .font(.headline)
+                                     Text("Підписок")
+                                         .font(.caption)
+                                         .foregroundStyle(.secondary)
+                                 }
+                            }
+                        }.redacted(reason: viewModel.avatarImage == nil ? .placeholder : [])
                     }
 
                     if viewModel.isCurrentUser {
@@ -67,9 +93,23 @@ struct ProfileView: View {
                             .padding(.vertical, 8)
                             .padding(.horizontal, 16)
                             .background(Color("primaryColor").opacity(0.1))
-                            .cornerRadius(12)
+                            .cornerRadius(20)
                         }
                     }
+                    else {
+                        Button(action: {
+                            viewModel.toggleSubscription()
+                        }) {
+                            Text(viewModel.isSubscribed ? "Відписатись" : "Підписатись")
+                                .foregroundColor(.white)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 20)
+                                .background(viewModel.isSubscribed ? Color.red : Color("primaryColor"))
+                                .cornerRadius(10)
+                        }
+                    }
+
+                    
                 }
                 .padding(12)
                 .background(.card)
@@ -128,7 +168,7 @@ struct ProfileView: View {
                         viewModel.selectedTab = .created
                         Task { await viewModel.fetchUserData() }
                     }) {
-                        Label("Створені", systemImage: "folder.badge.plus")
+                        Label("Створені", systemImage: viewModel.selectedTab == .created ? "folder.fill.badge.plus" : "folder.badge.plus")
                             .padding(.vertical, 8)
                             .padding(.horizontal, 16)
                             .background(viewModel.selectedTab == .created ? Color("primaryColor").opacity(0.2) : Color.clear)
@@ -140,7 +180,7 @@ struct ProfileView: View {
                             viewModel.selectedTab = .liked
                             Task { await viewModel.fetchUserData() }
                         }) {
-                            Label("Вподобані", systemImage: "heart")
+                            Label("Вподобані", systemImage: viewModel.selectedTab == .liked ? "heart.fill" : "heart")
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 16)
                                 .background(viewModel.selectedTab == .liked ? Color("primaryColor").opacity(0.2) : Color.clear)
@@ -167,6 +207,9 @@ struct ProfileView: View {
             }
             .task {
                 await viewModel.fetchUserData()
+                viewModel.checkSubscriptionStatus()
+                viewModel.fetchFollowersCount()
+                viewModel.fetchSubscriptionsCount()
             }
             .sheet(item: $selectedPostForSheet) { newPost in
                 PostDetailView(post: .constant(newPost))

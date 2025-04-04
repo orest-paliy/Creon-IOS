@@ -13,6 +13,10 @@ class ProfileViewModel: ObservableObject {
     @Published var isCurrentUser: Bool = true
     @Published var avatarURL: String = ""
     @Published var userProfile: UserProfileDTO? = nil
+    @Published var isSubscribed: Bool = false
+    @Published var subscriptionsCount: Int = 0
+    @Published var followersCount: Int = 0
+
 
     var userId: String?
 
@@ -83,6 +87,64 @@ class ProfileViewModel: ObservableObject {
         }
 
         return rows
+    }
+    
+    func checkSubscriptionStatus() {
+        guard let targetId = userId,
+              let currentId = FirebaseUserService.shared.currentUserId,
+              currentId != targetId else { return }
+
+        FirebaseUserService.shared.isSubscribed(to: targetId, from: currentId) { [weak self] isSubscribed in
+            DispatchQueue.main.async {
+                self?.isSubscribed = isSubscribed
+            }
+        }
+    }
+
+    func toggleSubscription() {
+        guard let targetId = userId,
+              let currentId = FirebaseUserService.shared.currentUserId,
+              currentId != targetId else { return }
+
+        if isSubscribed {
+            FirebaseUserService.shared.unsubscribe(from: targetId, by: currentId) { [weak self] error in
+                DispatchQueue.main.async {
+                    if error == nil {
+                        self?.isSubscribed = false
+                        self?.fetchFollowersCount()
+                    }
+                }
+            }
+        } else {
+            FirebaseUserService.shared.subscribe(to: targetId, from: currentId) { [weak self] error in
+                DispatchQueue.main.async {
+                    if error == nil {
+                        self?.isSubscribed = true
+                        self?.fetchFollowersCount()
+                    }
+                }
+            }
+        }
+    }
+
+    func fetchFollowersCount() {
+        guard let uid = userId else { return }
+
+        FirebaseUserService.shared.fetchFollowers(for: uid) { [weak self] followers in
+            DispatchQueue.main.async {
+                self?.followersCount = followers.count
+            }
+        }
+    }
+
+    func fetchSubscriptionsCount() {
+        guard let uid = userId else { return }
+
+        FirebaseUserService.shared.fetchSubscriptions(for: uid) { [weak self] subscriptions in
+            DispatchQueue.main.async {
+                self?.subscriptionsCount = subscriptions.count
+            }
+        }
     }
 
 }

@@ -7,11 +7,13 @@ struct TabBarItemView: View {
     private var iconName: String {
         switch tab {
         case .home:
-            return "house.fill"
+            return "magnifyingglass"
         case .create:
             return "plus"
         case .profile:
             return "person.fill"
+        case .recomended:
+            return "house.fill"
         }
     }
 

@@ -38,6 +38,8 @@ struct ContentView: View {
                         }, selectedPost: $selectedPost)
                     case .create:
                         EmptyView()
+                    case .recomended:
+                        RecommendedPostsView(selectedPost: $selectedPost)
                     }
                 }
                 VStack{

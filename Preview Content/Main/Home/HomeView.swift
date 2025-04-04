@@ -16,15 +16,17 @@ struct HomeView: View {
                     if viewModel.isLoading {
                         ProgressView().padding()
                     } else if !viewModel.isSearching {
-                        Button("Завантажити ще...") {
-                            Task {
-                                await viewModel.loadMorePosts()
+                        if !viewModel.allPostsLoaded {
+                            Button("Завантажити ще...") {
+                                Task {
+                                    await viewModel.loadMorePosts()
+                                }
                             }
+                            .font(.caption)
+                            .foregroundStyle(Color("primaryColor"))
+                            .padding()
+                            .padding(.bottom, 65)
                         }
-                        .font(.caption)
-                        .foregroundStyle(Color("primaryColor"))
-                        .padding()
-                        .padding(.bottom, 50)
                     }
                 }
             }

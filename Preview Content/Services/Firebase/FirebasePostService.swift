@@ -31,7 +31,27 @@ final class FirebasePostService {
         }
         return posts
     }
+    
+    func fetchAllPostsSortedByDate() async throws -> [Post] {
+        let snapshot = try await Database.database().reference().child("posts").getDataAsync()
+        
+        var posts: [Post] = []
+        
+        for child in snapshot.children {
+            guard
+                let snap = child as? DataSnapshot,
+                let dict = snap.value as? [String: Any],
+                let data = try? JSONSerialization.data(withJSONObject: dict),
+                let post = try? JSONDecoder().decode(Post.self, from: data)
+            else { continue }
 
+            posts.append(post)
+        }
+
+        let sorted = posts.sorted { $0.createdAt > $1.createdAt }
+        return sorted
+    }
+    
     func fetchPostsByKey(limit: UInt, startAfter lastKey: String?) async throws -> [Post] {
         var query = database.child("posts").queryOrderedByKey()
 

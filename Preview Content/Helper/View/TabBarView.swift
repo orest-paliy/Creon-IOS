@@ -6,6 +6,8 @@ struct TabBarView: View {
     var body: some View {
         HStack {
             Spacer()
+            TabBarItemView(tab: .recomended, selectedTab: $selectedTab)
+            Spacer()
             TabBarItemView(tab: .home, selectedTab: $selectedTab)
             Spacer()
             TabBarItemView(tab: .create, selectedTab: $selectedTab)
