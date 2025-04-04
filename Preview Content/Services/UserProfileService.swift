@@ -76,6 +76,34 @@ class UserProfileService {
             completion(.failure(error))
         }
     }
+    
+    func updateUserEmbedding(with postEmbedding: [Double], alpha: Float = 0.1) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference().child("users/\(uid)")
+        
+        let snapshot = try await ref.getDataAsync()
+        
+        guard let dict = snapshot.value as? [String: Any],
+              let data = try? JSONSerialization.data(withJSONObject: dict),
+              var profile = try? JSONDecoder().decode(UserProfileDTO.self, from: data),
+              profile.embedding.count == postEmbedding.count
+        else { return }
+
+        // Оновлюємо embedding
+        let updatedEmbedding = UserEmbeddingHelper.updatedEmbedding(
+            userEmbedding: profile.embedding.map { Float($0) },
+            postEmbedding: postEmbedding.map { Float($0) },
+            alpha: alpha
+        ).map { Double($0) }
+
+        profile.embedding = updatedEmbedding
+
+        let updatedData = try JSONEncoder().encode(profile)
+        let updatedDict = try JSONSerialization.jsonObject(with: updatedData) as? [String: Any] ?? [:]
+        try await ref.setValue(updatedDict)
+    }
+
 }
 
 extension UIImage {

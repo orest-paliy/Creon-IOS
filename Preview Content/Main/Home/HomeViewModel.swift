@@ -12,7 +12,7 @@ final class HomeViewModel: ObservableObject {
         guard posts.isEmpty else { return }
         isLoading = true
         do {
-            let fetched = try await FirebaseUserService.shared.fetchPostsByKey(limit: limit, startAfter: nil)
+            let fetched = try await FirebasePostService.shared.fetchPostsByKey(limit: limit, startAfter: nil)
             self.posts = fetched
             self.lastKey = fetched.last?.id
         } catch {
@@ -25,7 +25,7 @@ final class HomeViewModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         do {
-            let fetched = try await FirebaseUserService.shared.fetchPostsByKey(limit: limit, startAfter: lastKey)
+            let fetched = try await FirebasePostService.shared.fetchPostsByKey(limit: limit, startAfter: lastKey)
             let newPosts = fetched.filter { newPost in
                 !posts.contains(where: { $0.id == newPost.id })
             }
@@ -47,7 +47,7 @@ final class HomeViewModel: ObservableObject {
 
         isSearching = true
 
-        FirebaseUserService.shared.fetchSimilarPostsByEmbedding(for: searchQuery) { [weak self] results in
+        FirebasePostService.shared.fetchSimilarPostsByEmbedding(for: searchQuery) { [weak self] results in
             Task { @MainActor in
                 self?.posts = results
                 self?.isLoading = false

@@ -10,31 +10,32 @@ struct CommentRowView: View {
             Image(systemName: "person.crop.circle.fill")
                 .resizable()
                 .frame(width: 32, height: 32)
-                .foregroundColor(.purple.opacity(0.8))
+                .foregroundColor(Color("primaryColor"))
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Користувач: \(comment.userId.prefix(10))...")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
 
                     Spacer()
 
                     Text(comment.createdAt, style: .relative)
                         .font(.caption2)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.textSecondary)
                 }
 
                 Text(comment.text)
                     .font(.body)
                     .padding(10)
-                    .background(Color.purple.opacity(0.1))
+                    .background(.card)
+                    .foregroundStyle(.textPrimary)
                     .cornerRadius(12)
 
                 HStack {
                     Button(action: onLikeTapped) {
                         Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .foregroundColor(isLiked ? .purple : .gray)
+                            .foregroundColor(isLiked ? Color("primaryColor") : .card)
                     }
 
                     Text("\(comment.likedBy?.count ?? 0)")

@@ -42,24 +42,33 @@ struct PostDetailView: View {
                         MarqueeTextView(tags: AItext, reverse: false)
                             .foregroundStyle(.white)
                             .padding(.bottom, 12)
-                            .background(.purple)
+                            .background(Color("primaryColor"))
                     }
                     
                     HStack {
-                        Button(action: {
-                            showAuthorProfile = true
-                        }) {
-                            Image(systemName: "person.crop.circle")
-                                .fontWeight(.bold)
+                        if post.authorId != FirebaseAuth.Auth.auth().currentUser?.uid {
+                            Button(action: {
+                                showAuthorProfile = true
+                            }) {
+                                Image(systemName: "person.crop.circle")
+                                    .fontWeight(.bold)
+                            }
+                            .foregroundStyle(Color("primaryColor"))
+                            .frame(width: 50, height: 50)
+                            .background(.card)
+                            .cornerRadius(20)
                         }
-                        .foregroundStyle(Color("primaryColor"))
-                        .frame(width: 50, height: 50)
-                        .background(.card)
-                        .cornerRadius(20)
                         
                         Button(action: {
                             viewModel.toggleLike()
                             post = viewModel.post
+                            if viewModel.isLikedByCurrentUser{
+                                Task {
+                                    if let embedding = viewModel.post.embedding {
+                                        try await UserProfileService.shared.updateUserEmbedding(with: embedding, alpha: 0.1)
+                                    }
+                                }
+                            }
                         }) {
                             Image(systemName: viewModel.isLikedByCurrentUser ? "heart.fill" : "heart")
                                 .fontWeight(.bold)
@@ -71,6 +80,11 @@ struct PostDetailView: View {
                         
                         Button {
                             showComments = true
+                            Task {
+                                if let embedding = viewModel.post.embedding {
+                                    try await UserProfileService.shared.updateUserEmbedding(with: embedding, alpha: 0.05)
+                                }
+                            }
                         } label: {
                             Image(systemName: "text.bubble")
                                 .fontWeight(.bold)
@@ -132,9 +146,17 @@ struct PostDetailView: View {
                 .ignoresSafeArea(.container)
             }
         }
+        .scrollIndicators(.hidden)
         .onAppear {
             viewModel.fetchPostFromFirebase()
             loadSimilarPosts()
+            
+            //MARK: оновлення embedding вектора
+            Task {
+                if let embedding = viewModel.post.embedding {
+                    try await UserProfileService.shared.updateUserEmbedding(with: embedding, alpha: 0.02)
+                }
+            }
         }
         .fullScreenCover(isPresented: $showComments) {
             CommentsView(post: viewModel.post)
@@ -147,7 +169,7 @@ struct PostDetailView: View {
         }
     }
     private func loadSimilarPosts() {
-        FirebaseUserService.shared.fetchSimilarPostsByEmbedding(for: post.tags, limit: 10) { posts in
+        FirebasePostService.shared.fetchSimilarPostsByEmbedding(for: post.tags, limit: 10) { posts in
             self.similarPosts = posts
         }
     }

@@ -11,6 +11,7 @@ class ProfileViewModel: ObservableObject {
     @Published var selectedTab: ProfilePostTab = .created
     @Published var avatarImage: UIImage? = nil
     @Published var isCurrentUser: Bool = true
+    @Published var avatarURL: String = ""
     @Published var userProfile: UserProfileDTO? = nil
 
     var userId: String?
@@ -27,14 +28,15 @@ class ProfileViewModel: ObservableObject {
             let profile = try await FirebaseUserService.shared.fetchUserProfile(uid: uid)
             self.userProfile = profile
             self.userEmail = profile.email
-            self.avatarImage = try await loadImageFromURL(profile.avatarURL)
+            self.avatarURL = profile.avatarURL
+            self.avatarImage = try await loadImageFromURL(avatarURL)
 
             switch selectedTab {
             case .created:
-                posts = try await FirebaseUserService.shared.fetchUserPosts(userId: uid)
+                posts = try await FirebasePostService.shared.fetchUserPosts(userId: uid)
             case .liked:
                 if isCurrentUser {
-                    posts = try await FirebaseUserService.shared.fetchLikedPosts(for: uid)
+                    posts = try await FirebasePostService.shared.fetchLikedPosts(for: uid)
                 } else {
                     posts = []
                 }
@@ -44,7 +46,7 @@ class ProfileViewModel: ObservableObject {
         }
     }
 
-    private func loadImageFromURL(_ urlString: String?) async throws -> UIImage? {
+    func loadImageFromURL(_ urlString: String?) async throws -> UIImage? {
         guard let urlString = urlString, let url = URL(string: urlString) else { return nil }
         let (data, _) = try await URLSession.shared.data(from: url)
         return UIImage(data: data)

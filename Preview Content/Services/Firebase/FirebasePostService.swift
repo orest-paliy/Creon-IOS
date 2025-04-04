@@ -1,65 +1,15 @@
 import Foundation
 import FirebaseStorage
-import UIKit
-import FirebaseAuth
 import FirebaseDatabase
+import UIKit
 
-final class FirebaseUserService {
-    static let shared = FirebaseUserService()
+final class FirebasePostService {
+    static let shared = FirebasePostService()
     private init() {}
-    
+
     private let storage = Storage.storage()
     private let database = Database.database().reference()
 
-    var currentUserId: String? {
-        Auth.auth().currentUser?.uid
-    }
-
-    var currentUserEmail: String? {
-        Auth.auth().currentUser?.email
-    }
-    
-    //MARK: User
-    func fetchEmail(for uid: String) async -> String {
-        let ref = Database.database().reference().child("users").child(uid).child("email")
-        
-        return await withCheckedContinuation { continuation in
-            ref.observeSingleEvent(of: .value) { snapshot in
-                if let email = snapshot.value as? String {
-                    continuation.resume(returning: email)
-                } else {
-                    continuation.resume(returning: "unknown@email.com")
-                }
-            }
-        }
-    }
-    
-    func fetchUserProfile(uid: String) async throws -> UserProfileDTO {
-            return try await withCheckedThrowingContinuation { continuation in
-                let ref = Database.database().reference().child("users").child(uid)
-                ref.observeSingleEvent(of: .value) { snapshot in
-                    guard let dict = snapshot.value as? [String: Any] else {
-                        continuation.resume(throwing: NSError(domain: "UserProfileError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Профіль не знайдено"]))
-                        return
-                    }
-
-                    do {
-                        let jsonData = try JSONSerialization.data(withJSONObject: dict)
-                        let user = try JSONDecoder().decode(UserProfileDTO.self, from: jsonData)
-                        continuation.resume(returning: user)
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
-        }
-    
-    func logout() throws {
-        try Auth.auth().signOut()
-    }
-
-
-    //MARK: Fetch posts
     func fetchUserPosts(userId: String) async throws -> [Post] {
         let snapshot = try await database.child("posts").getDataAsync()
 
@@ -70,23 +20,18 @@ final class FirebaseUserService {
                 let snap = child as? DataSnapshot,
                 let dict = snap.value as? [String: Any],
                 let data = try? JSONSerialization.data(withJSONObject: dict)
-            else {
-                continue
-            }
+            else { continue }
 
             do {
                 let post = try JSONDecoder().decode(Post.self, from: data)
                 if post.authorId == userId {
                     posts.append(post)
-                } else {
-                    print("⚠️ Ignored post with different authorId:", post.authorId)
                 }
-            } catch {
-            }
+            } catch {}
         }
         return posts
     }
-    
+
     func fetchPostsByKey(limit: UInt, startAfter lastKey: String?) async throws -> [Post] {
         var query = database.child("posts").queryOrderedByKey()
 
@@ -95,10 +40,9 @@ final class FirebaseUserService {
         }
 
         query = query.queryLimited(toFirst: limit)
-
         let snapshot = try await query.getDataAsync()
-        var posts: [Post] = []
 
+        var posts: [Post] = []
         for child in snapshot.children {
             guard
                 let snap = child as? DataSnapshot,
@@ -134,13 +78,10 @@ final class FirebaseUserService {
                         let postEmbedding = post.embedding,
                         postEmbedding.count == queryEmbedding.count
                     else { continue }
-                    
-                    if post.tags == query{
-                        continue
-                    }
-                    
+
+                    if post.tags == query { continue }
+
                     let sim = self.cosineSimilarity(queryEmbedding, postEmbedding)
-                    print("\(post.title) sim = \(sim)")
                     if sim >= similarityThreshold {
                         scored.append((post, sim))
                     }
@@ -151,18 +92,50 @@ final class FirebaseUserService {
             }
         }
     }
+    
+    func fetchRecommendedPosts(for userEmbedding: [Double], limit: Int = 10, similarityThreshold: Double = 0.4, completion: @escaping ([Post]) -> Void) {
+        let ref = Database.database().reference().child("posts")
+
+        ref.observeSingleEvent(of: .value) { snapshot in
+            var scored: [(Post, Double)] = []
+
+            for child in snapshot.children {
+                guard
+                    let snap = child as? DataSnapshot,
+                    let dict = snap.value as? [String: Any],
+                    let data = try? JSONSerialization.data(withJSONObject: dict),
+                    let post = try? JSONDecoder().decode(Post.self, from: data),
+                    let postEmbedding = post.embedding,
+                    postEmbedding.count == userEmbedding.count
+                else { continue }
+
+                let sim = self.cosineSimilarity(userEmbedding, postEmbedding)
+
+                if sim >= similarityThreshold {
+                    scored.append((post, sim))
+                }
+            }
+
+            let sorted = scored
+                .sorted { $0.1 > $1.1 }
+                .prefix(limit)
+                .map { $0.0 }
+
+            completion(sorted)
+        }
+    }
+
 
     func fetchLikedPosts(for userId: String) async throws -> [Post] {
-        let ref = Database.database().reference().child("posts")
+        let ref = database.child("posts")
         let snapshot = try await ref.getDataAsync()
-        
         var likedPosts: [Post] = []
 
         for case let child as DataSnapshot in snapshot.children {
             guard
                 let dict = child.value as? [String: Any],
                 let data = try? JSONSerialization.data(withJSONObject: dict),
-                var post = try? JSONDecoder().decode(Post.self, from: data)
+                let post = try? JSONDecoder().decode(Post.self, from: data)
             else { continue }
 
             if post.likedBy?.contains(userId) == true {
@@ -184,9 +157,7 @@ final class FirebaseUserService {
 
         return dotProduct / (magnitudeA * magnitudeB)
     }
-    
-    
-    //MARK: Post creation
+
     func uploadImage(_ image: UIImage, completion: @escaping (Result<String, Error>) -> Void) {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
             completion(.failure(NSError(domain: "ImageError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Не вдалося конвертувати зображення."])))
@@ -224,8 +195,8 @@ final class FirebaseUserService {
             completion(error as? Error)
         })
     }
-
 }
+
 
 extension DatabaseQuery {
     func getDataAsync() async throws -> DataSnapshot {

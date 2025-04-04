@@ -72,43 +72,51 @@ class GPTTagService {
     
     
     //MARK: User profile generation
-    func generateAvatarImageBase64(from tags: [String], completion: @escaping (UIImage?) -> Void) {
-        let prompt = generateAvatarPrompt(from: tags)
+    func generateImageBase64(fromTags tags: [String] = [],
+                                 customPrompt: String? = nil,
+                                 completion: @escaping (UIImage?) -> Void) {
+            
+            let promptToUse: String
+            if let custom = customPrompt, !custom.trimmingCharacters(in: .whitespaces).isEmpty {
+                promptToUse = custom
+            } else {
+                promptToUse = generateAvatarPrompt(from: tags)
+            }
 
-        guard let url = URL(string: "https://api.openai.com/v1/images/generations") else {
-            completion(nil)
-            return
-        }
-
-        let body: [String: Any] = [
-            "model": "dall-e-3",
-            "prompt": prompt,
-            "n": 1,
-            "size": "1024x1024",
-            "response_format": "b64_json"
-        ]
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            guard
-                let data = data,
-                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let dataArray = json["data"] as? [[String: Any]],
-                let b64String = dataArray.first?["b64_json"] as? String,
-                let imageData = Data(base64Encoded: b64String),
-                let image = UIImage(data: imageData)
-            else {
+            guard let url = URL(string: "https://api.openai.com/v1/images/generations") else {
                 completion(nil)
                 return
             }
-            completion(image)
-        }.resume()
-    }
+
+            let body: [String: Any] = [
+                "model": "dall-e-3",
+                "prompt": promptToUse,
+                "n": 1,
+                "size": "1024x1024",
+                "response_format": "b64_json"
+            ]
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+            URLSession.shared.dataTask(with: request) { data, _, _ in
+                guard
+                    let data = data,
+                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                    let dataArray = json["data"] as? [[String: Any]],
+                    let b64String = dataArray.first?["b64_json"] as? String,
+                    let imageData = Data(base64Encoded: b64String),
+                    let image = UIImage(data: imageData)
+                else {
+                    completion(nil)
+                    return
+                }
+                completion(image)
+            }.resume()
+        }
     
     //MARK: Web request
     private func sendChatRequest(with imageUrl: String, instruction: String, completion: @escaping (String) -> Void) {

@@ -115,7 +115,7 @@ struct InterestOnboardingView: View {
         gptService.generateEmbedding(from: prompt) { embedding in
             guard !embedding.isEmpty else { return }
 
-            gptService.generateAvatarImageBase64(from: tagsList) { image in
+            gptService.generateImageBase64(fromTags: tagsList) { image in
                 guard let avatar = image else { return }
 
                 let email = Auth.auth().currentUser?.email ?? ""

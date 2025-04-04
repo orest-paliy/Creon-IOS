@@ -7,6 +7,7 @@ struct ProfileView: View {
     @Binding var selectedPost: Post?
     @State private var showLogoutAlert = false
     @State private var selectedPostForSheet: Post? = nil
+    @State private var showFullScreen: Bool = false
 
     init(userId: String? = nil, onLogout: @escaping () -> Void, selectedPost: Binding<Post?>) {
         _viewModel = StateObject(wrappedValue: ProfileViewModel(userId: userId))
@@ -34,6 +35,12 @@ struct ProfileView: View {
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 60, height: 60)
                                 .clipShape(RoundedRectangle(cornerRadius: 20))
+                                .onTapGesture {
+                                    showFullScreen = true
+                                }
+                                .fullScreenCover(isPresented: $showFullScreen) {
+                                    ZoomableImageView(imageUrl: viewModel.avatarURL)
+                                }
                         } else {
                             ProgressView()
                                 .tint(.white)
@@ -153,6 +160,7 @@ struct ProfileView: View {
                     ScrollView {
                         PinterestGrid(posts: viewModel.posts, selectedPost: $selectedPostForSheet)
                             .padding(.top, 8)
+                            .padding(.bottom, 60)
                     }
                     .scrollIndicators(.hidden)
                 }

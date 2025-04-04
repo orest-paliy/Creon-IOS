@@ -7,104 +7,180 @@ struct CreatePostView: View {
     @Binding var selectedTab: TabBarViewModel.Tab
     @StateObject private var viewModel = CreatePostViewModel()
     @State private var selectedItem: PhotosPickerItem?
+    @State private var showCamera = false
+    @State private var showPromptInput = false
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    HStack {
-                        Button(action: {
-                            dismiss()
-                        }) {
-                            Image(systemName: "arrow.left")
-                                .font(.title)
-                                .foregroundStyle(.black)
-                        }
-
-                        Spacer()
-
-                        Text("Створення публікації")
-                            .font(.title)
-                            .bold()
-
-                        Spacer()
-                    }
-
-                    PhotosPicker(selection: $selectedItem, matching: .images) {
-                        ZStack {
-                            if let image = viewModel.image {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .cornerRadius(12)
-                            } else {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
-                                    .frame(height: 200)
-                                    .overlay(Text("Виберіть зображення").foregroundColor(.gray))
-                            }
-                        }
-                    }
-                    .onChange(of: selectedItem) { newItem in
-                        Task {
-                            if let data = try? await newItem?.loadTransferable(type: Data.self),
-                               let uiImage = UIImage(data: data) {
-                                viewModel.image = uiImage
-                            }
-                        }
-                    }
-
-                    TextField("Назва", text: $viewModel.title)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
-
-                    TextField("Опис", text: $viewModel.description, axis: .vertical)
-                        .lineLimit(3...6)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
-
-                    if let error = viewModel.errorMessage {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                            .multilineTextAlignment(.center)
-                    }
-
-                    Button("Створити публікацію") {
-                        viewModel.createPost(authorId: authorId)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                .padding()
-            }
-
-            if viewModel.isUploading {
-                ZStack {
-                    Color.black.opacity(0.4)
-                        .ignoresSafeArea()
-
+        NavigationStack{
+            ZStack {
+                ScrollView {
                     VStack(spacing: 20) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(.white)
+                        if viewModel.image == nil {
+                            VStack(alignment: .leading){
+                                Label("Оберіть спосіб завантаження фото", systemImage: "widget.medium")
+                                    .foregroundStyle(.textSecondary)
+                                HStack(spacing: 16){
+                                    Button {
+                                        showCamera = true
+                                    } label: {
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "camera")
+                                                .font(.title2)
+                                            Text("Камера")
+                                                .font(.footnote)
+                                        }
+                                        .padding()
+                                        .frame(height: 80)
+                                        .frame(maxWidth: .infinity)
+                                        .background(.card)
+                                        .foregroundStyle(Color("primaryColor"))
+                                        .cornerRadius(20)
+                                    }
+                                    
+                                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "photo")
+                                                .font(.title2)
+                                            Text("Галерея")
+                                                .font(.footnote)
+                                        }
+                                        .padding()
+                                        .frame(height: 80)
+                                        .frame(maxWidth: .infinity)
+                                        .background(.card)
+                                        .foregroundStyle(Color("primaryColor"))
+                                        .cornerRadius(20)
+                                    }
 
-                        Text("Зачекайте, поки AI обробить ваш запит…")
+                                    Button {
+                                        showPromptInput = true
+                                    } label: {
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "sparkles")
+                                                .font(.title2)
+                                            Text("AI")
+                                                .font(.footnote)
+                                        }
+                                        .padding()
+                                        .frame(height: 80)
+                                        .frame(maxWidth: .infinity)
+                                        .background(.card)
+                                        .foregroundStyle(Color("primaryColor"))
+                                        .cornerRadius(20)
+                                    }
+                                }
+                            }
+                            .padding(.top)
+                        }
+
+                        // MARK: - Prompt Input
+                        if showPromptInput && viewModel.image == nil {
+                            VStack(spacing: 12) {
+                                TextField("Введіть промпт для генерації зображення", text: $viewModel.prompt, axis: .vertical)
+                                    .padding()
+                                    .background(.card)
+                                    .cornerRadius(20)
+
+                                Button("Згенерувати зображення") {
+                                    viewModel.generateImageFromPrompt()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color("primaryColor"))
+                                .foregroundColor(.white)
+                                .cornerRadius(20)
+                            }
+                        }
+
+                        // MARK: - Image Preview
+                        if let image = viewModel.image {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .cornerRadius(12)
+                        }
+
+                        // MARK: - Title & Description
+                        if viewModel.image != nil {
+                            VStack(spacing: 16) {
+                                TextField("Назва", text: $viewModel.title)
+                                    .padding()
+                                    .background(.card)
+                                    .cornerRadius(20)
+
+                                TextField("Опис", text: $viewModel.description, axis: .vertical)
+                                    .lineLimit(3...6)
+                                    .padding()
+                                    .background(.card)
+                                    .cornerRadius(20)
+                            }
+
+                            // MARK: - Error
+                            if let error = viewModel.errorMessage {
+                                Text(error)
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                                    .multilineTextAlignment(.center)
+                            }
+
+                            // MARK: - Create Post Button
+                            Button("Створити публікацію") {
+                                viewModel.createPost(authorId: authorId)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color("primaryColor"))
                             .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
+                            .cornerRadius(20)
+                        }
                     }
                     .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(20)
+                }
+
+                // MARK: - Loader
+                if viewModel.isUploading {
+                    ZStack {
+                        Color.black.opacity(0.4).ignoresSafeArea()
+                        VStack(spacing: 20) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .tint(.white)
+
+                            Text("Зачекайте, поки AI обробить ваш запит…")
+                                .foregroundColor(.white)
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(20)
+                    }
                 }
             }
+            .navigationTitle("Створення публікації")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "arrow.left")
+                        }
+                        .foregroundStyle(Color("primaryColor"))
+                    }
+                }
+        }
+        .onChange(of: selectedItem) { newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    viewModel.image = uiImage
+                    showPromptInput = false
+                }
+            }
+        }
+        .sheet(isPresented: $showCamera) {
+            ImagePicker(sourceType: .camera, selectedImage: $viewModel.image)
         }
         .onChange(of: viewModel.didFinishPosting) { finished in
             if finished {
@@ -118,5 +194,5 @@ struct CreatePostView: View {
 }
 
 #Preview {
-    CreatePostView(authorId: "demo",  didFinishPosting: .constant(false), selectedTab: .constant(.home))
+    CreatePostView(authorId: "", didFinishPosting: .constant(false), selectedTab: .constant(.create))
 }
