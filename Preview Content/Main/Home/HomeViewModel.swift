@@ -10,8 +10,8 @@ final class HomeViewModel: ObservableObject {
     @Published var allPostsLoaded = false
     
     private var allPosts: [Post] = []
-    private var currentPage: Int = 0
     private let pageSize = 10
+    private var currentPage = 0
 
     func loadInitialPosts() async {
         guard !isLoading else { return }
@@ -19,12 +19,12 @@ final class HomeViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            self.allPosts = try await FirebasePostService.shared.fetchAllPostsSortedByDate()
-            self.posts = Array(allPosts.prefix(pageSize))
-            self.currentPage = 1
-            self.allPostsLoaded = posts.count == allPosts.count
+            allPosts = try await PublicationService.shared.fetchAllPostsSortedByDate()
+            posts = Array(allPosts.prefix(pageSize))
+            currentPage = 1
+            allPostsLoaded = posts.count == allPosts.count
         } catch {
-            print("Помилка при завантаженні:", error.localizedDescription)
+            print("❌ Помилка при завантаженні:", error.localizedDescription)
         }
     }
 
@@ -46,7 +46,7 @@ final class HomeViewModel: ObservableObject {
         currentPage += 1
         allPostsLoaded = posts.count == allPosts.count
     }
-
+    
     func performSearch() {
         isLoading = true
         guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else {
@@ -57,14 +57,13 @@ final class HomeViewModel: ObservableObject {
 
         isSearching = true
 
-        FirebasePostService.shared.fetchSimilarPostsByEmbedding(for: searchQuery) { [weak self] results in
-            Task { @MainActor in
+        PublicationService.shared.fetchSimilarPostsByText(searchQuery) { [weak self] results in
+            DispatchQueue.main.async {
                 self?.posts = results
                 self?.isLoading = false
             }
         }
     }
-
 
     func clearSearch() {
         searchQuery = ""

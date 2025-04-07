@@ -1,97 +1,114 @@
 import Foundation
-import FirebaseAuth
-import FirebaseStorage
-import FirebaseDatabase
 import UIKit
+import FirebaseAuth
+import FirebaseDatabase
 
-class UserProfileService {
+final class UserProfileService {
     static let shared = UserProfileService()
     private init() {}
 
-    func createUserProfile(email: String, interests: [String], avatarImage: UIImage, embedding: [Double], completion: @escaping (Result<Void, Error>) -> Void) {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+    private let database = Database.database().reference()
 
-        uploadAvatarImage(avatarImage, uid: uid) { result in
-            switch result {
-            case .success(let avatarURL):
-                let profile = UserProfileDTO(
-                    uid: uid,
-                    email: email,
-                    interests: interests,
-                    embedding: embedding,
-                    avatarURL: avatarURL,
-                    createdAt: Date().timeIntervalSince1970
-                )
-                self.saveProfileToDatabase(profile: profile, completion: completion)
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+    var currentUserId: String? {
+        Auth.auth().currentUser?.uid
     }
 
-    func checkIfUserProfileExists(uid: String, completion: @escaping (Bool) -> Void) {
-        let ref = Database.database().reference().child("users/\(uid)")
-        ref.observeSingleEvent(of: .value) { snapshot in
-            completion(snapshot.exists())
+    var currentUserEmail: String? {
+        Auth.auth().currentUser?.email
+    }
+    
+    func logout() throws {
+        try Auth.auth().signOut()
+    }
+    
+
+    func fetchUserProfile(uid: String) async throws -> User {
+        guard var components = URLComponents(string: URLFormater.getURL("fetchuserprofile")) else {
+            throw URLError(.badURL)
         }
+
+        components.queryItems = [
+            URLQueryItem(name: "uid", value: uid)
+        ]
+
+        guard let url = components.url else {
+            throw URLError(.badURL)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(User.self, from: data)
     }
 
-    private func uploadAvatarImage(_ image: UIImage, uid: String, completion: @escaping (Result<String, Error>) -> Void) {
-        let resizedImage = image.resize(to: CGSize(width: 256, height: 256))
-        guard let data = resizedImage.jpegData(compressionQuality: 0.8) else {
-            completion(.failure(NSError(domain: "ImageConversionError", code: -1)))
+    func createUserProfile(
+        email: String,
+        interests: [String],
+        avatarURL: String,
+        embedding: [Double],
+        subscriptions: [String] = [],
+        followers: [String] = [],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            completion(.failure(NSError(domain: "UserError", code: -1)))
             return
         }
-    
-        let ref = Storage.storage().reference().child("avatars/\(uid).jpg")
-        ref.putData(data, metadata: nil) { _, error in
-            if let error = error {
-                completion(.failure(error))
-            } else {
-                ref.downloadURL { url, error in
-                    if let url = url {
-                        completion(.success(url.absoluteString))
-                    } else {
-                        completion(.failure(error ?? NSError(domain: "URLGenerationError", code: -2)))
-                    }
-                }
-            }
+
+        guard let url = URL(string: URLFormater.getURL("createUserProfile")) else {
+            completion(.failure(URLError(.badURL)))
+            return
         }
-    }
 
+        let body: [String: Any] = [
+            "uid": uid,
+            "email": email,
+            "interests": interests,
+            "embedding": embedding,
+            "avatarURL": avatarURL,
+            "createdAt": Date().timeIntervalSince1970,
+            "subscriptions": subscriptions,
+            "followers": followers
+        ]
 
-    private func saveProfileToDatabase(profile: UserProfileDTO, completion: @escaping (Result<Void, Error>) -> Void) {
-        let ref = Database.database().reference().child("users/\(profile.uid)")
-        do {
-            let data = try JSONEncoder().encode(profile)
-            let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
-            ref.setValue(dict) { error, _ in
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
                 } else {
                     completion(.success(()))
                 }
             }
-        } catch {
-            completion(.failure(error))
-        }
+        }.resume()
+    }
+    
+    private func saveProfileToDatabase(
+        profile: User,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        createUserProfile(
+            email: profile.email,
+            interests: profile.interests,
+            avatarURL: profile.avatarURL,
+            embedding: profile.embedding,
+            subscriptions: profile.subscriptions ?? [],
+            followers: profile.followers ?? [],
+            completion: completion
+        )
     }
     
     func updateUserEmbedding(with postEmbedding: [Double], alpha: Float = 0.1) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-
-        let ref = Database.database().reference().child("users/\(uid)")
+        var profile = try await fetchUserProfile(uid: uid)
         
-        let snapshot = try await ref.getDataAsync()
-        
-        guard let dict = snapshot.value as? [String: Any],
-              let data = try? JSONSerialization.data(withJSONObject: dict),
-              var profile = try? JSONDecoder().decode(UserProfileDTO.self, from: data),
-              profile.embedding.count == postEmbedding.count
-        else { return }
-
         // Оновлюємо embedding
-        let updatedEmbedding = UserEmbeddingHelper.updatedEmbedding(
+        let updatedEmbedding = updatedEmbedding(
             userEmbedding: profile.embedding.map { Float($0) },
             postEmbedding: postEmbedding.map { Float($0) },
             alpha: alpha
@@ -99,19 +116,227 @@ class UserProfileService {
 
         profile.embedding = updatedEmbedding
 
-        let updatedData = try JSONEncoder().encode(profile)
-        let updatedDict = try JSONSerialization.jsonObject(with: updatedData) as? [String: Any] ?? [:]
-        try await ref.setValue(updatedDict)
+        createUserProfile(
+            email: profile.email,
+            interests: profile.interests,
+            avatarURL: profile.avatarURL,
+            embedding: profile.embedding,
+            subscriptions: profile.subscriptions ?? [],
+            followers: profile.followers ?? [],
+            completion: {_ in }
+        )
+    }
+    
+    func checkIfUserProfileExists(uid: String, completion: @escaping (Bool) -> Void) {
+        guard var components = URLComponents(string: URLFormater.getURL("checkifuserprofileexists")) else {
+            completion(false)
+            return
+        }
+
+        components.queryItems = [URLQueryItem(name: "uid", value: uid)]
+
+        guard let url = components.url else {
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            guard let data = data,
+                  error == nil,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let exists = json["exists"] as? Bool else {
+                completion(false)
+                return
+            }
+
+            completion(exists)
+        }.resume()
     }
 
-}
+    func uploadAvatarImage(_ image: UIImage, uid: String, completion: @escaping (Result<String, Error>) -> Void) {
+        let resizedImage = image.resize(to: CGSize(width: 256, height: 256))
+        
+        guard let imageData = resizedImage.jpegData(compressionQuality: 0.8) else {
+            completion(.failure(NSError(domain: "ImageConversionError", code: -1)))
+            return
+        }
 
-extension UIImage {
-    func resize(to size: CGSize) -> UIImage {
-        UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
-        draw(in: CGRect(origin: .zero, size: size))
-        let resized = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return resized ?? self
+        let base64String = imageData.base64EncodedString()
+        guard let url = URL(string: URLFormater.getURL("uploadavatarimage")) else {
+            completion(.failure(URLError(.badURL)))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "imageBase64": base64String,
+            "uid": uid
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard
+                let data = data,
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let imageUrl = json["imageUrl"] as? String
+            else {
+                completion(.failure(NSError(domain: "ServerError", code: -2)))
+                return
+            }
+
+            completion(.success(imageUrl))
+        }.resume()
+    }
+
+
+    
+    func subscribe(to userId: String, from currentUserId: String, completion: @escaping (Error?) -> Void) {
+        guard let url = URL(string: URLFormater.getURL("subscribeToUser")) else {
+            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "currentUserId": currentUserId,
+            "userIdToSubscribe": userId
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            DispatchQueue.main.async {
+                completion(error)
+            }
+        }.resume()
+    }
+
+
+    func unsubscribe(from userId: String, by currentUserId: String, completion: @escaping (Error?) -> Void) {
+        guard let url = URL(string: URLFormater.getURL("unsubscribeFromUser")) else {
+            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "currentUserId": currentUserId,
+            "userIdToUnsubscribe": userId
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            DispatchQueue.main.async {
+                completion(error)
+            }
+        }.resume()
+    }
+
+    func isSubscribed(to userId: String, from currentUserId: String, completion: @escaping (Bool) -> Void) {
+        guard var components = URLComponents(string: URLFormater.getURL("isSubscribed")) else {
+            completion(false)
+            return
+        }
+
+        components.queryItems = [
+            URLQueryItem(name: "currentUserId", value: currentUserId),
+            URLQueryItem(name: "targetUserId", value: userId)
+        ]
+
+        guard let url = components.url else {
+            completion(false)
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            var result = false
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let isSubscribed = json["isSubscribed"] as? Bool {
+                result = isSubscribed
+            }
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }.resume()
+    }
+
+    func fetchSubscriptions(for userId: String, completion: @escaping ([String]) -> Void) {
+        guard var components = URLComponents(string: URLFormater.getURL("fetchSubscriptions")) else {
+            completion([])
+            return
+        }
+
+        components.queryItems = [URLQueryItem(name: "userId", value: userId)]
+
+        guard let url = components.url else {
+            completion([])
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            var ids: [String] = []
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let subscriptions = json["subscriptions"] as? [String] {
+                ids = subscriptions
+            }
+            DispatchQueue.main.async {
+                completion(ids)
+            }
+        }.resume()
+    }
+
+    func fetchFollowers(for userId: String, completion: @escaping ([String]) -> Void) {
+        guard var components = URLComponents(string: URLFormater.getURL("fetchFollowers")) else {
+            completion([])
+            return
+        }
+
+        components.queryItems = [URLQueryItem(name: "userId", value: userId)]
+
+        guard let url = components.url else {
+            completion([])
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            var ids: [String] = []
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let followers = json["followers"] as? [String] {
+                ids = followers
+            }
+            DispatchQueue.main.async {
+                completion(ids)
+            }
+        }.resume()
+    }
+
+    
+    private func updatedEmbedding(userEmbedding: [Float], postEmbedding: [Float], alpha: Float = 0.1) -> [Float] {
+        guard userEmbedding.count == postEmbedding.count else { return userEmbedding }
+        return zip(userEmbedding, postEmbedding).map { (u, p) in
+            (1 - alpha) * u + alpha * p
+        }
     }
 }

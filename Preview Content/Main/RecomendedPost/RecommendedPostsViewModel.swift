@@ -1,10 +1,3 @@
-//
-//  RecommendedPostsViewModel.swift
-//  Diploma
-//
-//  Created by Orest Palii on 04.04.2025.
-//
-
 import Foundation
 import FirebaseAuth
 
@@ -16,17 +9,15 @@ final class RecommendedPostsViewModel: ObservableObject {
     func loadRecommendedPosts(limit: Int = 10) async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         isLoading = true
+        defer { isLoading = false }
+
         do {
-            let user = try await FirebaseUserService.shared.fetchUserProfile(uid: userId)
-            FirebasePostService.shared.fetchRecommendedPosts(for: user.embedding ?? [], limit: limit) { [weak self] posts in
-                Task { @MainActor in
-                    self?.posts = posts
-                    self?.isLoading = false
-                }
-            }
+            let user = try await UserProfileService.shared.fetchUserProfile(uid: userId)
+            let embedding = user.embedding ?? []
+            let posts = try await PublicationService.shared.fetchRecommendedPosts(userEmbedding: embedding)
+            self.posts = posts
         } catch {
-            print("❌ Не вдалося завантажити embedding користувача:", error.localizedDescription)
-            isLoading = false
+            print("❌ Не вдалося завантажити рекомендовані пости:", error.localizedDescription)
         }
     }
 }

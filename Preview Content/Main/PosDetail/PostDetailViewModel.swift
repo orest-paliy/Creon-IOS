@@ -81,17 +81,11 @@ class PostDetailViewModel: ObservableObject {
     }
     
     func fetchPostFromFirebase() {
-        let ref = Database.database().reference().child("posts").child(post.id)
-        ref.observeSingleEvent(of: .value) { snapshot in
-            guard
-                let dict = snapshot.value as? [String: Any],
-                let data = try? JSONSerialization.data(withJSONObject: dict),
-                let updatedPost = try? JSONDecoder().decode(Post.self, from: data)
-            else {
-                return
+        PublicationService.shared.fetchPostById(postId: post.id) { updatedPost in
+            guard let updatedPost = updatedPost else { return }
+            DispatchQueue.main.async {
+                self.post = updatedPost
             }
-
-            self.post = updatedPost
         }
     }
 

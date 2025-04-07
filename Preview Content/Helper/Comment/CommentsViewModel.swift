@@ -23,7 +23,7 @@ class CommentsViewModel: ObservableObject {
 
     func fetchComments() async {
         do {
-            let fetched = try await FirebaseCommentsService.shared.fetchComments(for: postId)
+            let fetched = try await CommentService.shared.fetchComments(for: postId)
             comments = fetched.sorted { ($0.likedBy?.count ?? 0) > ($1.likedBy?.count ?? 0) }
         } catch {
             errorMessage = error.localizedDescription
@@ -73,7 +73,7 @@ class CommentsViewModel: ObservableObject {
 
     private func saveComments() async {
         do {
-            try await FirebaseCommentsService.shared.saveComments(comments, for: postId)
+            try await CommentService.shared.saveComments(comments, for: postId)
         } catch {
             errorMessage = error.localizedDescription
         }

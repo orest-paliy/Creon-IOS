@@ -111,7 +111,7 @@ struct InterestOnboardingView: View {
 
         let tagsList = Array(selectedTags)
         let prompt = "Користувач обрав інтереси: \(tagsList.joined(separator: ", ")). Сформуй короткий опис його стилю."
-        let gptService = GPTTagService()
+        let gptService = ChatGPTService()
         gptService.generateEmbedding(from: prompt) { embedding in
             guard !embedding.isEmpty else { return }
 
@@ -119,10 +119,25 @@ struct InterestOnboardingView: View {
                 guard let avatar = image else { return }
 
                 let email = Auth.auth().currentUser?.email ?? ""
-                UserProfileService.shared.createUserProfile(email: email, interests: tagsList, avatarImage: avatar, embedding: embedding) { result in
-                    DispatchQueue.main.async {
+                UserProfileService.shared.uploadAvatarImage(avatar, uid: email) { result in
+                    switch result {
+                    case .success(let avatarURL):
+                        UserProfileService.shared.createUserProfile(
+                            email: email,
+                            interests: tagsList,
+                            avatarURL: avatarURL,
+                            embedding: embedding,
+                            subscriptions: [],
+                            followers: []
+                        ) { result in
+                            DispatchQueue.main.async {
+                                isLoading = false
+                                navigateToHome = true
+                            }
+                        }
+                    case .failure(let error):
+                        print("Failed to upload avatar:", error)
                         isLoading = false
-                        navigateToHome = true
                     }
                 }
             }

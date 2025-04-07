@@ -12,24 +12,27 @@ class ProfileViewModel: ObservableObject {
     @Published var avatarImage: UIImage? = nil
     @Published var isCurrentUser: Bool = true
     @Published var avatarURL: String = ""
-    @Published var userProfile: UserProfileDTO? = nil
+    @Published var userProfile: User? = nil
     @Published var isSubscribed: Bool = false
     @Published var subscriptionsCount: Int = 0
     @Published var followersCount: Int = 0
-
+    @Published var isLoading: Bool = false
 
     var userId: String?
 
     init(userId: String? = nil) {
-        self.userId = userId ?? FirebaseUserService.shared.currentUserId
-        self.isCurrentUser = self.userId == FirebaseUserService.shared.currentUserId
+        self.userId = userId ?? UserProfileService.shared.currentUserId
+        self.isCurrentUser = self.userId == UserProfileService.shared.currentUserId
     }
 
     func fetchUserData() async {
         guard let uid = userId else { return }
 
+        isLoading = true
+        defer { isLoading = false }
+
         do {
-            let profile = try await FirebaseUserService.shared.fetchUserProfile(uid: uid)
+            let profile = try await UserProfileService.shared.fetchUserProfile(uid: uid)
             self.userProfile = profile
             self.userEmail = profile.email
             self.avatarURL = profile.avatarURL
@@ -37,10 +40,10 @@ class ProfileViewModel: ObservableObject {
 
             switch selectedTab {
             case .created:
-                posts = try await FirebasePostService.shared.fetchUserPosts(userId: uid)
+                posts = try await PublicationService.shared.fetchUserPosts(userId: uid)
             case .liked:
                 if isCurrentUser {
-                    posts = try await FirebasePostService.shared.fetchLikedPosts(for: uid)
+                    posts = try await PublicationService.shared.fetchLikedPosts(for: uid)
                 } else {
                     posts = []
                 }
@@ -58,7 +61,7 @@ class ProfileViewModel: ObservableObject {
 
     func logout() {
         do {
-            try FirebaseUserService.shared.logout()
+            try UserProfileService.shared.logout()
             isLoggedOut = true
         } catch {
             errorMessage = error.localizedDescription
@@ -91,10 +94,10 @@ class ProfileViewModel: ObservableObject {
     
     func checkSubscriptionStatus() {
         guard let targetId = userId,
-              let currentId = FirebaseUserService.shared.currentUserId,
+              let currentId = UserProfileService.shared.currentUserId,
               currentId != targetId else { return }
 
-        FirebaseUserService.shared.isSubscribed(to: targetId, from: currentId) { [weak self] isSubscribed in
+        UserProfileService.shared.isSubscribed(to: targetId, from: currentId) { [weak self] isSubscribed in
             DispatchQueue.main.async {
                 self?.isSubscribed = isSubscribed
             }
@@ -103,11 +106,11 @@ class ProfileViewModel: ObservableObject {
 
     func toggleSubscription() {
         guard let targetId = userId,
-              let currentId = FirebaseUserService.shared.currentUserId,
+              let currentId = UserProfileService.shared.currentUserId,
               currentId != targetId else { return }
 
         if isSubscribed {
-            FirebaseUserService.shared.unsubscribe(from: targetId, by: currentId) { [weak self] error in
+            UserProfileService.shared.unsubscribe(from: targetId, by: currentId) { [weak self] error in
                 DispatchQueue.main.async {
                     if error == nil {
                         self?.isSubscribed = false
@@ -116,7 +119,7 @@ class ProfileViewModel: ObservableObject {
                 }
             }
         } else {
-            FirebaseUserService.shared.subscribe(to: targetId, from: currentId) { [weak self] error in
+            UserProfileService.shared.subscribe(to: targetId, from: currentId) { [weak self] error in
                 DispatchQueue.main.async {
                     if error == nil {
                         self?.isSubscribed = true
@@ -130,7 +133,7 @@ class ProfileViewModel: ObservableObject {
     func fetchFollowersCount() {
         guard let uid = userId else { return }
 
-        FirebaseUserService.shared.fetchFollowers(for: uid) { [weak self] followers in
+        UserProfileService.shared.fetchFollowers(for: uid) { [weak self] followers in
             DispatchQueue.main.async {
                 self?.followersCount = followers.count
             }
@@ -140,7 +143,7 @@ class ProfileViewModel: ObservableObject {
     func fetchSubscriptionsCount() {
         guard let uid = userId else { return }
 
-        FirebaseUserService.shared.fetchSubscriptions(for: uid) { [weak self] subscriptions in
+        UserProfileService.shared.fetchSubscriptions(for: uid) { [weak self] subscriptions in
             DispatchQueue.main.async {
                 self?.subscriptionsCount = subscriptions.count
             }

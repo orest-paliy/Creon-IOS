@@ -10,7 +10,7 @@ class CreatePostViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var didFinishPosting = false
 
-    let gptService = GPTTagService()
+    let gptService = ChatGPTService()
 
     func generateImageFromPrompt() {
         isUploading = true
@@ -34,7 +34,7 @@ class CreatePostViewModel: ObservableObject {
 
         isUploading = true
 
-        FirebasePostService.shared.uploadImage(image) { [weak self] result in
+        PublicationService.shared.uploadImageToServer(image) { [weak self] result in
             switch result {
             case .success(let imageUrl):
                 self?.generatePostData(imageUrl: imageUrl, authorId: authorId)
@@ -70,7 +70,7 @@ class CreatePostViewModel: ObservableObject {
                         updatedAt: nil
                     )
 
-                    FirebasePostService.shared.uploadPost(post) { error in
+                    PublicationService.shared.uploadPost(post) { error in
                         DispatchQueue.main.async {
                             self?.isUploading = false
                             if let error = error {

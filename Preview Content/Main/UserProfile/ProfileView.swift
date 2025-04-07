@@ -191,7 +191,22 @@ struct ProfileView: View {
                 .font(.subheadline.bold())
                 .foregroundColor(Color("primaryColor"))
 
-                if viewModel.posts.isEmpty {
+                if viewModel.isLoading && viewModel.posts.isEmpty {
+                    VStack {
+                        ProgressView()
+                            .tint(Color("primaryColor"))
+                        Text("Зачекайте, дані користувача завантажуються...")
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(Color("primaryColor"))
+                    }
+                    .padding()
+                    .background(.card)
+                    .cornerRadius(20)
+                    .padding(.horizontal)
+                    .padding(.top, 60)
+                    Spacer()
+                }
+                else if viewModel.posts.isEmpty {
                     Spacer()
                     Text("Немає публікацій")
                         .foregroundColor(.textSecondary)

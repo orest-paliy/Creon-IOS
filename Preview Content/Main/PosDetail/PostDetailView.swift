@@ -149,10 +149,10 @@ struct PostDetailView: View {
         .scrollIndicators(.hidden)
         .onAppear {
             viewModel.fetchPostFromFirebase()
-            loadSimilarPosts()
-            
-            //MARK: оновлення embedding вектора
             Task {
+                await loadSimilarPosts()
+                
+                //MARK: оновлення embedding вектора
                 if let embedding = viewModel.post.embedding {
                     try await UserProfileService.shared.updateUserEmbedding(with: embedding, alpha: 0.02)
                 }
@@ -168,10 +168,10 @@ struct PostDetailView: View {
             PostDetailView(post: .constant(newPost))
         }
     }
-    private func loadSimilarPosts() {
-        FirebasePostService.shared.fetchSimilarPostsByEmbedding(for: post.tags, limit: 10) { posts in
-            self.similarPosts = posts
-        }
+    private func loadSimilarPosts() async {
+        do{
+            self.similarPosts = try await PublicationService.shared.fetchRecommendedPosts(userEmbedding: post.embedding ?? [], limit: 10)
+        }catch{}
     }
 }
     

@@ -5,5 +5,5 @@ class TabBarViewModel: ObservableObject {
         case home, create, profile, recomended
     }
 
-    @Published var selectedTab: Tab = .home
+    @Published var selectedTab: Tab = .recomended
 }
