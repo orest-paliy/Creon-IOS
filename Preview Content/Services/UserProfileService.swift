@@ -1,13 +1,10 @@
 import Foundation
 import UIKit
 import FirebaseAuth
-import FirebaseDatabase
 
 final class UserProfileService {
     static let shared = UserProfileService()
     private init() {}
-
-    private let database = Database.database().reference()
 
     var currentUserId: String? {
         Auth.auth().currentUser?.uid

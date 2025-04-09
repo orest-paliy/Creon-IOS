@@ -1,14 +1,9 @@
 import Foundation
-import FirebaseStorage
-import FirebaseDatabase
 import UIKit
 
 final class PublicationService {
     static let shared = PublicationService()
     private init() {}
-
-    private let storage = Storage.storage()
-    private let database = Database.database().reference()
     
     private func makeGETRequest<T: Decodable>(url: URL) async throws -> T {
         var request = URLRequest(url: url)
@@ -26,29 +21,24 @@ final class PublicationService {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    func fetchPostById(postId: String, completion: @escaping (Post?) -> Void) {
+    func fetchPostById(postId: String) async throws -> Post? {
         guard var components = URLComponents(string: URLFormater.getURL("fetchPostById")) else {
-            completion(nil)
-            return
+            return nil
         }
 
         components.queryItems = [URLQueryItem(name: "postId", value: postId)]
 
         guard let url = components.url else {
-            completion(nil)
-            return
+            return nil
         }
 
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard
-                let data = data,
-                let post = try? JSONDecoder().decode(Post.self, from: data)
-            else {
-                completion(nil)
-                return
-            }
-            completion(post)
-        }.resume()
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+
+        let post = try JSONDecoder().decode(Post.self, from: data)
+        return post
     }
 
     func fetchUserPosts(userId: String) async throws -> [Post] {
@@ -237,17 +227,5 @@ final class PublicationService {
                 completion(error)
             }
         }.resume()
-    }
-}
-
-extension DatabaseQuery {
-    func getDataAsync() async throws -> DataSnapshot {
-        try await withCheckedThrowingContinuation { continuation in
-            self.observeSingleEvent(of: .value) { snapshot in
-                continuation.resume(returning: snapshot)
-            } withCancel: { error in
-                continuation.resume(throwing: error)
-            }
-        }
     }
 }

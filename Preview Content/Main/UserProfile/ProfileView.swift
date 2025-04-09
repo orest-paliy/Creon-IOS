@@ -227,7 +227,7 @@ struct ProfileView: View {
                 viewModel.fetchSubscriptionsCount()
             }
             .sheet(item: $selectedPostForSheet) { newPost in
-                PostDetailView(post: .constant(newPost))
+                PostDetailView(postId: newPost.id)
             }
         }
     }

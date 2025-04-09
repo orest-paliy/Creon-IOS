@@ -94,12 +94,12 @@ struct CreatePostView: View {
                             }
                         }
 
-                        // MARK: - Image Preview
                         if let image = viewModel.image {
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFit()
                                 .cornerRadius(12)
+                                .frame(maxWidth: .infinity, maxHeight: 500)
                         }
 
                         // MARK: - Title & Description
@@ -138,6 +138,7 @@ struct CreatePostView: View {
                     }
                     .padding()
                 }
+                .scrollIndicators(.hidden)
 
                 // MARK: - Loader
                 if viewModel.isUploading {

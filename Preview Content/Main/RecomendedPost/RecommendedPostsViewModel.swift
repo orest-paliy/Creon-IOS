@@ -17,7 +17,7 @@ final class RecommendedPostsViewModel: ObservableObject {
             let posts = try await PublicationService.shared.fetchRecommendedPosts(userEmbedding: embedding)
             self.posts = posts
         } catch {
-            print("❌ Не вдалося завантажити рекомендовані пости:", error.localizedDescription)
+            print("Не вдалося завантажити рекомендовані пости:", error.localizedDescription)
         }
     }
 }

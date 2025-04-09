@@ -1,51 +1,85 @@
+//
+//  NewSearchViewModel.swift
+//  Diploma
+//
+//  Created by Orest Palii on 08.04.2025.
+//
+
 import Foundation
-import FirebaseDatabase
 
+@MainActor
 final class SearchViewModel: ObservableObject {
-    @Published var searchText: String = ""
-    @Published var searchResults: [Post] = []
+    @Published var posts: [Post] = []
+    @Published var searchQuery: String = ""
+    @Published var isSearching = false
     @Published var isLoading = false
+    @Published var lastKey: String? = nil
+    @Published var allPostsLoaded = false
+    
+    private var allPosts: [Post] = []
+    private let pageSize = 10
+    private var currentPage = 0
 
-    func performSearch() {
-        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else {
-            searchResults = []
+    func loadInitialPosts() async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            allPosts = try await PublicationService.shared.fetchAllPostsSortedByDate()
+            posts = Array(allPosts.prefix(pageSize))
+            currentPage = 1
+            allPostsLoaded = posts.count == allPosts.count
+        } catch {
+            print("Помилка при завантаженні:", error.localizedDescription)
+        }
+    }
+
+    func loadMorePosts() async {
+        guard !isLoading, !allPostsLoaded else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        let startIndex = currentPage * pageSize
+        let endIndex = min(startIndex + pageSize, allPosts.count)
+
+        guard startIndex < endIndex else {
+            allPostsLoaded = true
             return
         }
 
+        let newPosts = Array(allPosts[startIndex..<endIndex])
+        posts.append(contentsOf: newPosts)
+        currentPage += 1
+        allPostsLoaded = posts.count == allPosts.count
+    }
+    
+    func performSearch() {
         isLoading = true
+        guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else {
+            isSearching = false
+            isLoading = false
+            return
+        }
 
-        let queryTags = searchText
-            .lowercased()
-            .split(separator: " ")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
+        isSearching = true
 
-        Database.database().reference().child("posts").observeSingleEvent(of: .value) { snapshot in
-            var foundPosts: [Post] = []
-            var seenIds: Set<String> = []
-
-            for child in snapshot.children {
-                guard
-                    let snap = child as? DataSnapshot,
-                    let dict = snap.value as? [String: Any],
-                    let data = try? JSONSerialization.data(withJSONObject: dict),
-                    let post = try? JSONDecoder().decode(Post.self, from: data)
-                else { continue }
-
-                let postTags = post.tags
-                    .lowercased()
-                    .split(separator: ",")
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-
-                if !Set(queryTags).isDisjoint(with: postTags), !seenIds.contains(post.id) {
-                    foundPosts.append(post)
-                    seenIds.insert(post.id)
-                }
-            }
-
+        PublicationService.shared.fetchSimilarPostsByText(searchQuery) { [weak self] results in
             DispatchQueue.main.async {
-                self.searchResults = foundPosts
-                self.isLoading = false
+                self?.posts = results
+                self?.isLoading = false
             }
         }
     }
+
+    func clearSearch() {
+        searchQuery = ""
+        isSearching = false
+        posts = []
+        lastKey = nil
+        Task {
+            await loadInitialPosts()
+        }
+    }
+
 }

@@ -31,7 +31,7 @@ struct ContentView: View {
                 ZStack {
                     switch viewModel.selectedTab {
                     case .home:
-                        HomeView(selectedPost: $selectedPost)
+                        SearchView(selectedPost: $selectedPost)
                     case .profile:
                         ProfileView(onLogout: {
                             try? Auth.auth().signOut()
@@ -58,7 +58,8 @@ struct ContentView: View {
             }
             .background(Color("BackgroundColor"))
             .sheet(item: $selectedPost) { post in
-                PostDetailView(post: .constant(post))
+                PostDetailView(postId: post.id)
+                    .id(post.id)
             }
             .onChange(of: viewModel.selectedTab){
                 if $0 == .create {
