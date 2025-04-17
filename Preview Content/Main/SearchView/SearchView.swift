@@ -8,7 +8,7 @@ struct SearchView: View {
         ZStack(alignment: .top){
             ScrollView {
                 LazyVStack {
-                    PinterestGrid(posts: viewModel.posts, selectedPost: $selectedPost)
+                    PinterestGrid(posts: $viewModel.posts, selectedPost: $selectedPost, isItYourProfile: false)
                         .padding(.top, viewModel.isLoading ? 160 : 40)
                         .padding(.bottom, 65)
                         .animation(.easeInOut(duration: 0.3), value: viewModel.isLoading)

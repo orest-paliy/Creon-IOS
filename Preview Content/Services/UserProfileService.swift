@@ -102,26 +102,12 @@ final class UserProfileService {
     
     func updateUserEmbedding(with postEmbedding: [Double], alpha: Float = 0.1) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        var profile = try await fetchUserProfile(uid: uid)
-        
-        // Оновлюємо embedding
-        let updatedEmbedding = updatedEmbedding(
-            userEmbedding: profile.embedding.map { Float($0) },
+        updateUserEmbedding(
+            uid: uid,
             postEmbedding: postEmbedding.map { Float($0) },
-            alpha: alpha
-        ).map { Double($0) }
-
-        profile.embedding = updatedEmbedding
-
-        createUserProfile(
-            email: profile.email,
-            interests: profile.interests,
-            avatarURL: profile.avatarURL,
-            embedding: profile.embedding,
-            subscriptions: profile.subscriptions ?? [],
-            followers: profile.followers ?? [],
-            completion: {_ in }
-        )
+            alpha: alpha,
+            direction: "toward"
+        ) {_ in}
     }
     
     func checkIfUserProfileExists(uid: String, completion: @escaping (Bool) -> Void) {
@@ -330,10 +316,49 @@ final class UserProfileService {
     }
 
     
-    private func updatedEmbedding(userEmbedding: [Float], postEmbedding: [Float], alpha: Float = 0.1) -> [Float] {
-        guard userEmbedding.count == postEmbedding.count else { return userEmbedding }
-        return zip(userEmbedding, postEmbedding).map { (u, p) in
-            (1 - alpha) * u + alpha * p
+    func updateUserEmbedding(
+        uid: String,
+        postEmbedding: [Float],
+        alpha: Float = 0.1,
+        direction: String = "toward",
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: URLFormater.getURL("updateUserEmbedding")) else {
+            completion(.failure(NSError(domain: "InvalidURL", code: 0)))
+            return
         }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload: [String: Any] = [
+            "uid": uid,
+            "postEmbedding": postEmbedding,
+            "alpha": alpha,
+            "direction": direction
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                completion(.failure(NSError(domain: "InvalidResponse", code: 0)))
+                return
+            }
+
+            completion(.success(()))
+        }.resume()
     }
 }

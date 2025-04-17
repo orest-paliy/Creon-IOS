@@ -75,8 +75,9 @@ struct RecommendedPostsView: View {
                     if selectedSource == .recommended {
                         LazyVStack {
                             PinterestGrid(
-                                posts: currentPosts,
-                                selectedPost: $selectedPost
+                                posts: .constant(currentPosts),
+                                selectedPost: $selectedPost,
+                                isItYourProfile: false
                             )
                             .padding(.top)
                             .padding(.bottom, 65)
@@ -85,7 +86,7 @@ struct RecommendedPostsView: View {
                     } else {
                         LazyVStack(spacing: 8) {
                             ForEach(currentPosts, id: \.id) { item in
-                                PostRowView(post: item)
+                                PostRowView(posts: .constant(currentPosts), post: item, isThisYourProfile: false)
                                     .onTapGesture {
                                         selectedPost = item
                                     }

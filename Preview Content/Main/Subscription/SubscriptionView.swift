@@ -7,7 +7,7 @@ struct SubscriptionPostsView: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 ForEach(viewModel.posts, id: \.id) { post in
-                    PostRowView(post: post)
+                    PostRowView(posts: $viewModel.posts, post: post, isThisYourProfile: false)
                 }
 
                 if viewModel.isLoading {

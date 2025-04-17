@@ -213,7 +213,7 @@ struct ProfileView: View {
                     Spacer()
                 } else {
                     ScrollView {
-                        PinterestGrid(posts: viewModel.posts, selectedPost: $selectedPostForSheet)
+                        PinterestGrid(posts: $viewModel.posts, selectedPost: $selectedPostForSheet, isItYourProfile: true)
                             .padding(.top, 8)
                             .padding(.bottom, 60)
                     }

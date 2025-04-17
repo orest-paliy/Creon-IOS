@@ -38,6 +38,7 @@ class ChatGPTService {
             completion(description.trimmingCharacters(in: .whitespacesAndNewlines))
         }.resume()
     }
+    
 
     
     //MARK: AI generation Confidance

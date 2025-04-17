@@ -40,7 +40,7 @@ struct PostDetailView: View {
                             .padding(.top)
                             .foregroundStyle(.textPrimary)
 
-                        PinterestGrid(posts: similarPosts, selectedPost: $selectedPostForSheet)
+                        PinterestGrid(posts: $similarPosts, selectedPost: $selectedPostForSheet, isItYourProfile: false)
                     }
                     .background(Color("BackgroundColor"))
                 }

@@ -78,7 +78,7 @@ struct CreatePostView: View {
                         // MARK: - Prompt Input
                         if showPromptInput && viewModel.image == nil {
                             VStack(spacing: 12) {
-                                TextField("Введіть промпт для генерації зображення", text: $viewModel.prompt, axis: .vertical)
+                                TextField("Введіть промпт для генерації зображення", text: $viewModel.prompt)
                                     .padding()
                                     .background(.card)
                                     .cornerRadius(20)
@@ -149,12 +149,33 @@ struct CreatePostView: View {
                                 .scaleEffect(1.5)
                                 .tint(.white)
 
-                            Text("Зачекайте, поки AI обробить ваш запит…")
+                            Text(viewModel.didFinishStreaming ? "Залишилось ще зовсім трішки" : "Зачекайте, поки AI обробить ваш запит…")
                                 .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+
+                            // ✅ Анімована поява
+                            if !viewModel.generatedTagString.isEmpty {
+                                VStack(spacing: 12) {
+                                    Divider()
+                                    Label("Ось що бачить AI:", systemImage: "eyes.inverse")
+                                        .foregroundStyle(Color("primaryColor"))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                    Text(viewModel.generatedTagString)
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .padding(.top, 10)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            }
                         }
                         .padding()
                         .background(.ultraThinMaterial)
                         .cornerRadius(20)
+                        .padding(.horizontal, 38)
+                        .animation(.easeInOut(duration: 0.4), value: viewModel.generatedTagString.isEmpty == false)
+                        
+                        AIGlowEffectView()
                     }
                 }
             }

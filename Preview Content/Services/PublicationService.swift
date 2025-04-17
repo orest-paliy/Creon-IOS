@@ -228,4 +228,24 @@ final class PublicationService {
             }
         }.resume()
     }
+    
+    func deletePost(id: String, completion: @escaping (Error?) -> Void) {
+            guard let url = URL(string: URLFormater.getURL("deletePost")) else {
+                completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+                return
+            }
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            let body = ["postId": id]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+            URLSession.shared.dataTask(with: request) { _, _, error in
+                DispatchQueue.main.async {
+                    completion(error)
+                }
+            }.resume()
+        }
 }
