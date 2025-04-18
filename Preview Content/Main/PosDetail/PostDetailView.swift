@@ -54,7 +54,7 @@ struct PostDetailView: View {
             await viewModel.loadPost(with: postId)
             if let embedding = viewModel.post?.embedding {
                 try? await UserProfileService.shared.updateUserEmbedding(with: embedding, alpha: 0.02)
-                similarPosts = try! await PublicationService.shared.fetchRecommendedPosts(userEmbedding: embedding, limit: 10)
+                similarPosts = try! await PublicationService.shared.fetchRecommendedPosts(userEmbedding: embedding, limit: 11)
             }
         }
         .fullScreenCover(isPresented: $showComments) {

@@ -37,15 +37,24 @@ struct PostRowView: View {
 
                     if !isThisYourProfile {
                         Menu {
+                            Button {
+                                PublicationService.shared.saveImageToGallery(from: post.imageUrl)
+                            } label: {
+                                Label("Завантажити зображення", systemImage: "arrow.down.to.line")
+                            }.foregroundStyle(Color("primaryColor"))
+                            
                             Button("Мене не цікавить такий контент", role: .destructive) {
                                 handleNotInterested()
                             }
                         } label: {
                             Image(systemName: "ellipsis")
                                 .rotationEffect(.degrees(90))
-                                .foregroundColor(.white)
+                                .foregroundColor(Color("primaryColor"))
                                 .padding(12)
+                                .padding(.top, 6)
+                                .background(Color.clear)
                                 .contentShape(Rectangle())
+                                .frame(width: 60, height: 60, alignment: .topTrailing)
                         }
                     }
                 }
@@ -126,7 +135,7 @@ struct PostRowView: View {
         UserProfileService.shared.updateUserEmbedding(
             uid: uid,
             postEmbedding: post.embedding!.map { Float($0) },
-            alpha: 0.1,
+            alpha: 0.05,
             direction: "away"
         ) { result in
             DispatchQueue.main.async {

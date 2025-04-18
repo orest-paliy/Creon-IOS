@@ -1,4 +1,5 @@
 import Foundation
+import Photos
 import UIKit
 
 final class PublicationService {
@@ -79,29 +80,27 @@ final class PublicationService {
         return try await makeGETRequest(url: url)
     }
 
-    func fetchRecommendedPosts(userEmbedding: [Double], limit: Int = 10, similarityThreshold: Double = 0.4) async throws -> [Post] {
-        guard let url = URL(string: URLFormater.getURL("fetchRecommendedPosts")) else {
+    func fetchRecommendedPosts(userEmbedding: [Double], limit: Int = 11, similarityThreshold: Double = 0.4) async throws -> [Post] {
+        guard let url = URL(string: URLFormater.getURL("getRecommendedPosts")) else {
             throw URLError(.badURL)
         }
 
         let body: [String: Any] = [
             "embedding": userEmbedding,
-            "limit": limit,
-            "similarityThreshold": similarityThreshold
+            "limit": limit
         ]
 
         return try await makePOSTRequest(url: url, body: body)
     }
 
-    func fetchSimilarPostsByText(_ query: String, limit: Int = 10, similarityThreshold: Double = 0.4, completion: @escaping ([Post]) -> Void) {
-        guard let url = URL(string: URLFormater.getURL("fetchSimilarPostsByText")) else {
+    func fetchSimilarPostsByText(_ query: String, limit: Int = 10, completion: @escaping ([Post]) -> Void) {
+        guard let url = URL(string: URLFormater.getURL("getSimilarPostsByTextInput")) else {
             completion([])
             return
         }
 
         let body: [String: Any] = [
             "query": query,
-            "threshold": similarityThreshold,
             "limit": limit
         ]
 
@@ -230,22 +229,43 @@ final class PublicationService {
     }
     
     func deletePost(id: String, completion: @escaping (Error?) -> Void) {
-            guard let url = URL(string: URLFormater.getURL("deletePost")) else {
-                completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+        guard let url = URL(string: URLFormater.getURL("deletePost")) else {
+            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["postId": id]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            DispatchQueue.main.async {
+                completion(error)
+            }
+        }.resume()
+    }
+    
+    func saveImageToGallery(from urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            guard let data = data, let image = UIImage(data: data), error == nil else {
+                print("Помилка завантаження зображення:", error?.localizedDescription ?? "")
                 return
             }
 
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-            let body = ["postId": id]
-            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-            URLSession.shared.dataTask(with: request) { _, _, error in
-                DispatchQueue.main.async {
-                    completion(error)
+            PHPhotoLibrary.requestAuthorization { status in
+                guard status == .authorized || status == .limited else {
+                    print("Немає дозволу на доступ до фото")
+                    return
                 }
-            }.resume()
-        }
+
+                UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                print("Фото збережено в галерею")
+            }
+        }.resume()
+    }
 }

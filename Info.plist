@@ -12,5 +12,8 @@
 
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Цей додаток потребує доступу до фотогалереї для вибору зображень.</string>
+    
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Додати зображення до галереї</string>
 </dict>
 </plist>
