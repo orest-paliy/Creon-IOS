@@ -11,6 +11,8 @@ class GPTStreamHandler: NSObject, URLSessionDataDelegate {
     private var completionHandler: (() -> Void)?
 
     func startStreaming(from imageUrl: String,
+                        userTitle: String,
+                        userDescription: String,
                         onChunk: @escaping (String) -> Void,
                         onComplete: @escaping () -> Void) {
         guard let url = URL(string: URLFormater.getURL("generateTagStringStreaming")) else {
@@ -22,7 +24,11 @@ class GPTStreamHandler: NSObject, URLSessionDataDelegate {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let payload: [String: Any] = ["imageUrl": imageUrl]
+        let payload: [String: Any] = [
+            "imageUrl": imageUrl,
+            "title": userTitle,
+            "description": userDescription
+        ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
 
         self.responseHandler = onChunk
@@ -33,6 +39,7 @@ class GPTStreamHandler: NSObject, URLSessionDataDelegate {
 
         session.dataTask(with: request).resume()
     }
+
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let chunk = String(data: data, encoding: .utf8) else { return }

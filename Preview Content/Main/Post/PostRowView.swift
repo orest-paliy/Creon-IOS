@@ -75,17 +75,19 @@ struct PostRowView: View {
                     }
 
                     if isThisYourProfile {
-                        Button(role: .destructive) {
-                            showDeleteAlert = true
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
-                        .alert("Ви дійсно хочете видалити публікацію?", isPresented: $showDeleteAlert) {
-                            Button("Видалити", role: .destructive) {
-                                deletePost()
+                        if isThisYourPost(postAuthorId: post.authorId) {
+                            Button(role: .destructive) {
+                                showDeleteAlert = true
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
                             }
-                            Button("Скасувати", role: .cancel) { }
+                            .alert("Ви дійсно хочете видалити публікацію?", isPresented: $showDeleteAlert) {
+                                Button("Видалити", role: .destructive) {
+                                    deletePost()
+                                }
+                                Button("Скасувати", role: .cancel) { }
+                            }
                         }
                     }
                 }
@@ -166,5 +168,10 @@ struct PostRowView: View {
                 print("Публікацію успішно видалено")
             }
         }
+    }
+    
+    func isThisYourPost(postAuthorId: String) -> Bool{
+        let yourId = Auth.auth().currentUser?.uid ?? ""
+        return yourId == postAuthorId
     }
 }

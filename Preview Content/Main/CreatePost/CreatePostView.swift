@@ -127,7 +127,7 @@ struct CreatePostView: View {
 
                             // MARK: - Create Post Button
                             Button("Створити публікацію") {
-                                viewModel.createPost(authorId: authorId)
+                                viewModel.createPost(userTitle: viewModel.title, userDescription: viewModel.description,authorId: authorId)
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -184,7 +184,7 @@ struct CreatePostView: View {
             .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
-                            dismiss()
+                            viewModel.didFinishPosting = true
                         } label: {
                             Image(systemName: "arrow.left")
                         }

@@ -29,7 +29,7 @@ class CreatePostViewModel: ObservableObject {
         }
     }
     
-    func createPost(authorId: String) {
+    func createPost(userTitle: String, userDescription: String, authorId: String) {
         guard let image = image else {
             errorMessage = "Будь ласка, виберіть або згенеруйте зображення."
             return
@@ -40,7 +40,7 @@ class CreatePostViewModel: ObservableObject {
         PublicationService.shared.uploadImageToServer(image) { [weak self] result in
             switch result {
             case .success(let imageUrl):
-                self?.generatePostData(imageUrl: imageUrl, authorId: authorId)
+                self?.generatePostData(imageUrl: imageUrl, userTitle: userTitle, userDescription: userDescription, authorId: authorId)
             case .failure(let error):
                 DispatchQueue.main.async {
                     self?.isUploading = false
@@ -50,12 +50,14 @@ class CreatePostViewModel: ObservableObject {
         }
     }
     
-    private func generatePostData(imageUrl: String, authorId: String) {
+    private func generatePostData(imageUrl: String, userTitle: String, userDescription: String, authorId: String) {
         let wasGenerated = !prompt.trimmingCharacters(in: .whitespaces).isEmpty
         var tagString = ""
         
         streamHandler.startStreaming(
             from: imageUrl,
+            userTitle: userTitle,
+            userDescription: userDescription,
             onChunk: { chunk in
                 tagString += chunk
                 self.generatedTagString.append(chunk)
