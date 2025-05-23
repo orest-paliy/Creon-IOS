@@ -56,7 +56,7 @@ class AuthViewModel: ObservableObject {
             self.checkEmailVerification()
         }
     }
-
+//
     func checkEmailVerification() {
         Auth.auth().currentUser?.reload(completion: { error in
             if let error = error {
